@@ -72,13 +72,13 @@ Based on background info provided by HAR (links in background), the following is
 
     -   A= exactly according to specifications (correct)
 
--   B= throwing elbows to the front (incorrect)
+    -   B= throwing elbows to the front (incorrect)
 
--   C= lifting dumbbell only halfway (incorrect)
+    -   C= lifting dumbbell only halfway (incorrect)
 
--   D= lowering dumbbell only halfway (incorrect)
+    -   D= lowering dumbbell only halfway (incorrect)
 
--   E= throwing hips to the front (incorrect)
+    -   E= throwing hips to the front (incorrect)
 
 -   data collection format:
 
