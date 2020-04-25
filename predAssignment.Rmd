@@ -2,9 +2,8 @@
 title: "Predicting the excercise classe: ML Project"
 author: "Gloria"
 date: "4/20/2020"
-output: 
-    html_document:
-        keep_md: yes
+output: html_document
+    
 ---
 
 ```{r setup, include=FALSE}
@@ -30,7 +29,8 @@ Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. [Qualitative Acti
 
 ```{r importClean, echo=T}
 #import csv file as train with all invalid elements identified as NA (NA, "", "#DIV/0!")
-train=read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", sep=",", header=T, na.strings=c("NA","#DIV/0!",""))
+train=read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv",
+sep=",", header=T, na.strings=c("NA","#DIV/0!",""))
 originalTrain=dim(train)
 #remove variables with too many NA's
 naIndex=colSums(sapply(train, is.na))
@@ -59,7 +59,7 @@ With cross validation, the training and test set was divided into `r dim(trainin
 
 This corresponds to 1-accuracy, with accuracy being the probability of observations categorized correctly in the testing data set from the original training set data cross validated (aka out-of-sample data). This results in the expected error, the probability of observations categorized incorrectly in the same testing data set as the out-of-sample data. Based on probability theory concepts originally taught in inferential statistics of this specialization and more elaborated explanation given by one of the [course mentors](https://github.com/lgreski/datasciencectacontent/blob/master/markdown/pml-requiredModelAccuracy.md), the accuracy required for 95% confidence across 20 observations in the test data set is calculated via Sidak correction: 
     
-    ```{r Accuracy}
+```{r Accuracy, echo=T}
 (1-0.05)^(1/20)
 ```
 
@@ -67,7 +67,7 @@ This corresponds to 1-accuracy, with accuracy being the probability of observati
 
 Based on background info provided by HAR (links in background), the following is known about the data set: 
     
-    - weight lifting excercise was performed by 6 male participants, ages 20-28, with little weight lifting experience using 1.25kg dumbbells
+- weight lifting excercise was performed by 6 male participants, ages 20-28, with little weight lifting experience using 1.25kg dumbbells
 
 - while performing the excercises, they were equiped with a special glove, armband, lumbar belt and dumbbell equiped with inertial measurement units (IMU) sensors that provide X/Y/Z axes acceleration, gyroscope and magnetometer data at a 45Hz sampling rate. 
 
@@ -75,13 +75,13 @@ Based on background info provided by HAR (links in background), the following is
     
     * A= exactly according to specifications (correct)
 
-* B= throwing elbows to the front (incorrect)
+    * B= throwing elbows to the front (incorrect)
 
-* C= lifting dumbbell only halfway (incorrect)
+    * C= lifting dumbbell only halfway (incorrect)
 
-* D= lowering dumbbell only halfway (incorrect)
+    * D= lowering dumbbell only halfway (incorrect)
 
-* E= throwing hips to the front (incorrect)
+    * E= throwing hips to the front (incorrect)
 
 - data collection format:
     
@@ -97,7 +97,7 @@ Based on background info provided by HAR (links in background), the following is
 
 With all this in mind, other non-essential variables like user name and window can be eliminated: 
     
-    ```{r cleanVar, echo=T}
+```{r cleanVar, echo=T}
 #identify variables with key words
 impVar=names(training[,grep("arm|belt|dumbbell|classe", names(training))])
 #remove non-essential variables from train data set
@@ -173,7 +173,8 @@ The model has an accuracy of `r confusionMatrix(rfPreds, testing$classe)$overall
 
 ```{r quizResults}
 #upload test data set as out-of-sample data 
-test=read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", sep=",", header=T, na.strings=c("NA","#DIV/0!",""))
+test=read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv",
+sep=",", header=T, na.strings=c("NA","#DIV/0!",""))
 #prepare data set same way as training set 
 naIndex1=colSums(sapply(test, is.na))
 varValid1=names(test[,naIndex1==0])
