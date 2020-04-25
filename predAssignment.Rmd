@@ -4,7 +4,7 @@ author: "Gloria"
 date: "4/20/2020"
 output: 
     html_document:
-        keep_md: yes 
+        keep_md: yes
 ---
 
 ```{r setup, include=FALSE}
@@ -26,3 +26,161 @@ https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
 The background information used to build the ML algortihm for this assignment is: 
 Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. [Qualitative Activity Recognition of Weight Lifting Exercises.](http://groupware.les.inf.puc-rio.br/public/papers/2013.Velloso.QAR-WLE.pdf) Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013.
 
+#Importing and cleaning data 
+
+```{r importClean, echo=T}
+#import csv file as train with all invalid elements identified as NA (NA, "", "#DIV/0!")
+train=read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", sep=",", header=T, na.strings=c("NA","#DIV/0!",""))
+originalTrain=dim(train)
+#remove variables with too many NA's
+naIndex=colSums(sapply(train, is.na))
+varValid=names(train[,naIndex==0])
+train=train[,varValid]
+cleanTrain=dim(train)
+```
+
+Prior to NA's removal, the train data set had `r originalTrain[2]` variables. After removing variables with too many NA's, the train set now has `r cleanTrain[2]` variables.
+
+#Cross Validation
+
+To verify that the prediction model is truly a predictors and not just overfitting the training data set, must seperate the training set into sub training and testing data sets. By doing this, multiple trial and error can be conducted without using te original test set. Here the training set will be further subdivided into 70% training and 30% test.
+
+```{r crossVal, echo=T, message='hide'}
+library(caret)
+set.seed(1991)
+inTrain=createDataPartition(y=train$classe, p=0.7, list=F)
+training=train[inTrain,]
+testing=train[-inTrain,]
+```
+
+With cross validation, the training and test set was divided into `r dim(training)[1]` and `r dim(testing)[1]` observations respetively.
+
+#Expected out-of-sample error
+
+This corresponds to 1-accuracy, with accuracy being the probability of observations categorized correctly in the testing data set from the original training set data cross validated (aka out-of-sample data). This results in the expected error, the probability of observations categorized incorrectly in the same testing data set as the out-of-sample data. Based on probability theory concepts originally taught in inferential statistics of this specialization and more elaborated explanation given by one of the [course mentors](https://github.com/lgreski/datasciencectacontent/blob/master/markdown/pml-requiredModelAccuracy.md), the accuracy required for 95% confidence across 20 observations in the test data set is calculated via Sidak correction: 
+    
+    ```{r Accuracy}
+(1-0.05)^(1/20)
+```
+
+#Evaluating necessary variables
+
+Based on background info provided by HAR (links in background), the following is known about the data set: 
+    
+    - weight lifting excercise was performed by 6 male participants, ages 20-28, with little weight lifting experience using 1.25kg dumbbells
+
+- while performing the excercises, they were equiped with a special glove, armband, lumbar belt and dumbbell equiped with inertial measurement units (IMU) sensors that provide X/Y/Z axes acceleration, gyroscope and magnetometer data at a 45Hz sampling rate. 
+
+- participants were tasked on performing 10 repitions of Unilateral Dumbbell Biceps Curls in 5 different ways: 
+    
+    * A= exactly according to specifications (correct)
+
+* B= throwing elbows to the front (incorrect)
+
+* C= lifting dumbbell only halfway (incorrect)
+
+* D= lowering dumbbell only halfway (incorrect)
+
+* E= throwing hips to the front (incorrect)
+
+- data collection format:
+    
+    * feature extraction via sliding window approach (0.5-2.5 seconds long)
+
+* calculations within each window:
+    
+    - Euler angles (roll, pitch, yaw); calculated features (mean, variance, standard deviation, max, min, amplitude, kurtosis, skewness)
+
+- accelerometer, gyroscope and magnetometer X/Y/Z readings 
+
+* excercise performance label (A-E) stored in classe variable 
+
+With all this in mind, other non-essential variables like user name and window can be eliminated: 
+    
+    ```{r cleanVar, echo=T}
+#identify variables with key words
+impVar=names(training[,grep("arm|belt|dumbbell|classe", names(training))])
+#remove non-essential variables from train data set
+training=training[,impVar]
+#apply same variable evaluation to trainig set 
+testing=testing[,impVar]
+```
+
+By only keeping variables that are related to the sensors and classe, the number of predictors that will be used to develop a predictor model is `r dim(training)[2]`.  
+
+
+#Prediction Models 
+
+Experiment with a couple of prediction models to determine which has the highest expected accuracy and lowest expected error for out-of-sample (testing set). 
+
+##Model 1: Decision Tree
+
+The goal of this algorithm is to isolate the effect of each predictor variable by continuously splitting the data into subgroups until the groups reach homogeneity. The split groups are identified as "leaves" which are further split at "nodes", hence this technique being referred to as decision trees. 
+
+```{r decisionTree, message='hide'}
+#building model using rpart method
+desFit=train(classe ~ ., data=training, method="rpart")
+#visualize decision tree
+library(rattle)
+fancyRpartPlot(desFit$finalModel, caption="")
+#calculate accuracy of model 
+desPreds=predict(desFit, newdata=testing)
+confusionMatrix(desPreds, testing$classe)
+```
+
+This model has an accuracy of `r confusionMatrix(desPreds, testing$classe)$overall[1]` and an error of 1 - `r confusionMatrix(desPreds, testing$classe)$overall[1]` = `r 1-(confusionMatrix(desPreds, testing$classe)$overall[1])`, indicating that this isn't the best model to use. 
+
+##Model 2: Boosting
+
+The goal of this algorithm is to take possible weak predictors, re-weight them for strength emphasis, and then add them up. This is done by attempting to find a classifier that can seperate the variables, calculates the error rate of the classifier, upweights uncorrectly classified data points, checks, and repeats in many iterations until gets the lowest error rate possible. 
+
+```{r boosting}
+#build model with gbm method
+boostFit=train(classe ~ ., data=training, method="gbm", verbose=F)
+#calculate accuracy of model 
+boostPreds=predict(boostFit, newdata=testing)
+confusionMatrix(boostPreds, testing$classe)
+```
+
+This model has an accuracy of `r confusionMatrix(boostPreds, testing$classe)$overall[1]` and an error of 1 - `r confusionMatrix(boostPreds, testing$classe)$overall[1]` = `r 1-(confusionMatrix(boostPreds, testing$classe)$overall[1])`. This indicates a massive improvement from the decision tree, but still needs more optimization. 
+
+##Model 3: Random forest
+
+The goal of this model is to build a classification tree that subsets variables for a potential split (bootstrapping) and then averages/votes the tree results to get a new prediction for the outcome. This is one of the most popular ones, but can lead to overfitting without cross validation. 
+
+```{r randForest}
+#parallel processing configuration
+library(parallel); library(doParallel)
+cluster=makeCluster(detectCores()-1)
+registerDoParallel(cluster)
+#creating trainControl object 
+rfControl=trainControl(method="cv", number=5, allowParallel=T)
+#designate classe to y and all other variables to x for easier model code
+x=training[,-53]; y=training[,53]
+#create model 
+rfFit=train(x, y, data=training, trControl=rfControl)
+#deregister parallel processing cluster
+stopCluster(cluster)
+registerDoSEQ()
+#calculate accuracy of model 
+rfPreds=predict(rfFit, newdata=testing)
+confusionMatrix(rfPreds, testing$classe)
+```
+
+The model has an accuracy of `r confusionMatrix(rfPreds, testing$classe)$overall[1]` and an error of 1 - `r confusionMatrix(rfPreds, testing$classe)$overall[1]` = `r 1-(confusionMatrix(rfPreds, testing$classe)$overall[1])`. This model appears to be the best prediction model, so it will be used on the test data. 
+
+#Applying Random Forest model to Test Data
+
+```{r quizResults}
+#upload test data set as out-of-sample data 
+test=read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", sep=",", header=T, na.strings=c("NA","#DIV/0!",""))
+#prepare data set same way as training set 
+naIndex1=colSums(sapply(test, is.na))
+varValid1=names(test[,naIndex1==0])
+test=test[,varValid1]
+#test data set doesn't have classe variable, instead problem_id variable 
+impVar1=names(test[,grep("arm|belt|dumbbell|problem_id", names(test))])
+test=test[,impVar1]
+#predicts excercise class for test data 
+predict(rfFit, newdata=test)
+```
